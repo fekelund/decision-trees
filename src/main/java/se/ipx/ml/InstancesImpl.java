@@ -11,7 +11,6 @@ import java.util.TreeMap;
 import se.ipx.ml.util.Pair;
 import se.ipx.ml.util.Util;
 
-
 public class InstancesImpl implements Instances {
 
 	private final String targetLabel;
@@ -37,7 +36,7 @@ public class InstancesImpl implements Instances {
 	public String getTargetLabel() {
 		return targetLabel;
 	}
-	
+
 	@Override
 	public String getFeatureLabel(final int featureIndex) {
 		return fetaureLabels[featureIndex];
@@ -47,7 +46,7 @@ public class InstancesImpl implements Instances {
 	public double[][] getFeatureVectors() {
 		return valuesByRow;
 	}
-	
+
 	@Override
 	public double[] getFeatureVector(final int instanceIndex) {
 		return valuesByRow[instanceIndex];
@@ -57,22 +56,22 @@ public class InstancesImpl implements Instances {
 	public double[] getFeatureValues(final int featureIndex) {
 		return valuesByCol[featureIndex];
 	}
-	
+
 	@Override
-	public double[] getTargets() {
+	public double[] getTargetValues() {
 		return targetValues;
 	}
-	
+
 	@Override
 	public int getNumInstances() {
 		return valuesByRow.length;
 	}
-	
+
 	@Override
 	public int getNumFeatures() {
 		return valuesByCol.length;
 	}
-	
+
 	@Override
 	public Pair<Instances, Instances> binarySplitOn(final SplitCriteria criteria) {
 		Builder l = InstancesImpl.newBuilder().setFeatureLabels(fetaureLabels).setTargetLabel(targetLabel);
@@ -85,22 +84,22 @@ public class InstancesImpl implements Instances {
 				r.addInstance(targetValues[i], featureVector);
 			}
 		}
-		
+
 		return Pair.with(l.build(), r.build());
 	}
-	
+
 	public static Builder newBuilder() {
 		return new Builder();
 	}
-	
+
 	public static class Builder {
-		
+
 		private final List<double[]> featureVectors;
 		private final DoubleArrayList targetValues;
 		private final TreeMap<Integer, String> featureLabels;
 		private String taretLabel;
 		private int numFeatures;
-		
+
 		public Builder() {
 			featureVectors = new ArrayList<double[]>(1024);
 			featureLabels = new TreeMap<Integer, String>();
@@ -108,37 +107,37 @@ public class InstancesImpl implements Instances {
 			taretLabel = "";
 			numFeatures = -1;
 		}
-	
+
 		public Builder addInstance(final double targetValue, final double[] featureVector) {
 			if (featureVector == null) {
 				throw new NullPointerException();
 			}
-			
+
 			if (numFeatures == -1) {
 				numFeatures = featureVector.length;
 			} else if (numFeatures != featureVector.length) {
 				throw new IllegalArgumentException();
 			}
-			
+
 			featureVectors.add(featureVector);
 			targetValues.add(targetValue);
 			return this;
 		}
-		
+
 		public Builder addInstance(final Number targetValue, final Number... featureVector) {
 			if (featureVector == null || targetValue == null) {
 				throw new NullPointerException();
 			}
-			
+
 			double[] primitives = new double[featureVector.length];
 			for (int i = 0; i < featureVector.length; i++) {
 				if (featureVector[i] == null) {
-					throw new NullPointerException();					
+					throw new NullPointerException();
 				}
-				
+
 				primitives[i] = featureVector[i].doubleValue();
 			}
-			
+
 			return addInstance(targetValue.doubleValue(), primitives);
 		}
 
@@ -146,64 +145,64 @@ public class InstancesImpl implements Instances {
 			if (featureVector == null || targetValue == null) {
 				throw new NullPointerException();
 			}
-			
+
 			double[] primitives = new double[featureVector.size()];
 			for (int i = 0; i < featureVector.size(); i++) {
 				Number value = featureVector.get(i);
 				if (value == null) {
-					throw new NullPointerException();					
+					throw new NullPointerException();
 				}
-				
+
 				primitives[i] = value.doubleValue();
 			}
-			
+
 			return addInstance(targetValue.doubleValue(), primitives);
 		}
-		
+
 		public Builder setFeatureLabels(List<? extends CharSequence> featureLabels) {
 			if (featureLabels != null) {
 				for (int i = 0; i < featureLabels.size(); i++) {
 					setFeatureLabel(featureLabels.get(i), i);
 				}
 			}
-			
+
 			return this;
 		}
-		
+
 		public Builder setFeatureLabels(final CharSequence... featureLabels) {
 			if (featureLabels != null) {
 				for (int i = 0; i < featureLabels.length; i++) {
 					setFeatureLabel(featureLabels[i], i);
 				}
 			}
-			
+
 			return this;
 		}
-		
+
 		public Builder setFeatureLabel(final CharSequence featureLabel, int featureIndex) {
 			if (featureIndex < 0) {
 				throw new IllegalArgumentException();
 			}
-			
+
 			if (featureLabel != null) {
-				featureLabels.put(Integer.valueOf(featureIndex), featureLabel.toString());				
+				featureLabels.put(Integer.valueOf(featureIndex), featureLabel.toString());
 			}
-			
+
 			return this;
 		}
 
 		public Builder setTargetLabel(final CharSequence targetLabel) {
 			if (targetLabel != null) {
-				this.taretLabel = targetLabel.toString();				
+				this.taretLabel = targetLabel.toString();
 			}
-			
+
 			return this;
 		}
-		
+
 		public void validate() {
 			// NO-OP
 		}
-		
+
 		String[] getFeatureLabels() {
 			String[] labels;
 			if (numFeatures > 0) {
@@ -212,7 +211,7 @@ public class InstancesImpl implements Instances {
 					String label = featureLabels.get(i);
 					labels[i] = label != null ? label : "";
 				}
-			} else if (!featureLabels.isEmpty()){
+			} else if (!featureLabels.isEmpty()) {
 				Integer len = featureLabels.lastKey();
 				labels = new String[len + 1];
 				Arrays.fill(labels, "");
@@ -220,16 +219,16 @@ public class InstancesImpl implements Instances {
 					labels[entry.getKey()] = entry.getValue();
 				}
 			} else {
-				labels = new String[0];				
+				labels = new String[0];
 			}
-			
+
 			return labels;
 		}
-		
+
 		double[][] getFeatureVectors() {
 			return featureVectors.toArray(new double[featureVectors.size()][]);
 		}
-		
+
 		public Instances build() {
 			validate();
 			return new InstancesImpl(taretLabel, targetValues.toDoubleArray(), getFeatureLabels(), getFeatureVectors());
