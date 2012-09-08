@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+	<Match>
+		<Or>
+			<Class name="~.*Test" />
+		</Or>
+		<Bug category="MALICIOUS_CODE,PERFORMANCE,STYLE,SECURITY" />
+	</Match>
+	<Match>
+		<Bug code="EI,EI2" />
+	</Match>
+	<Match>
+		<Bug category="MALICIOUS_CODE,SECURITY" />
+	</Match>
+</FindBugsFilter>
