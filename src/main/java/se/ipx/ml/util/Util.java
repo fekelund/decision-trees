@@ -56,6 +56,10 @@ public class Util {
 	 * @return
 	 */
 	public static final double covariance(final double[] x, final double[] y) {
+		if (x.length != y.length) {
+			throw new IllegalArgumentException();
+		}
+		
 		final double prodXY = sum(x) * sum(y);
 		double sum = 0D;
 		double covariance = 0D;
@@ -83,7 +87,7 @@ public class Util {
 	 * @param y
 	 * @return
 	 */
-	public static final double pearsonsCorrelation(final double[] x, final double[] y) {
+	public static final double correlation(final double[] x, final double[] y) {
 		final double meanX = mean(x);
 		final double meanY = mean(y);
 		double sumXY = 0.0, sumX2 = 0.0, sumY2 = 0.0;
@@ -100,20 +104,35 @@ public class Util {
 
 	/**
 	 * 
-	 * @param x
+	 * @param A
 	 * @return
 	 */
-	public static final double[][] transpose(final double[][] x) {
-		final int m = x.length;
-		final int n = m > 0 ? x[0].length : 0;
-		final double[][] t = new double[n][m];
+	public static final double[][] transpose(final double[][] A) {
+		final int m = A.length;
+		final int n = m > 0 ? A[0].length : 0;
+		final double[][] aT = new double[n][m];
 		for (int i = 0; i < m; i++) {
 			for (int j = 0; j < n; j++) {
-				t[j][i] = x[i][j];
+				aT[j][i] = A[i][j];
 			}
 		}
 
-		return t;
+		return aT;
+	}
+
+	/**
+	 * 
+	 * @param a
+	 * @return
+	 */
+	public static final double[][] transpose(final double[] a) {
+		final int m = a.length;
+		final double[][] aT = new double[m][1];
+		for (int i = 0; i < m; i++) {
+			aT[i][0] = a[i];
+		}
+		
+		return aT;
 	}
 
 	/**
@@ -144,4 +163,107 @@ public class Util {
 		return primitives;
 	}
 
+	/**
+	 * 
+	 * @param scalar
+	 * @return
+	 */
+	public static final double[][] asMatrix(final double scalar) {
+		return new double[][] {{ scalar }};
+	}
+
+	/**
+	 * 
+	 * @param vector
+	 * @return
+	 */
+	public static final double[][] asMatrix(final double[] vector) {
+		if (vector.length == 0) {
+			return new double[0][0];						
+		} else {
+			return new double[][] { vector };			
+		}
+	}
+
+	public static final double asScalar(final double[][] matrix) {
+		if (matrix.length != 1 || matrix[0].length != 1) {
+			throw new IllegalArgumentException();
+		}
+		
+		return matrix[0][0];
+	}
+	
+	/**
+	 * 
+	 * @param A
+	 * @param B
+	 * @return
+	 */
+	public static final double[][] multiply(final double[][] A, final double[][] B) {
+		final int n = A.length;
+		final int m = B.length;
+		if (m == 0 || n == 0) {
+			return new double[0][0];
+		}
+		
+		final int p = B[0].length;
+		if (m != A[0].length) {
+			throw new IllegalArgumentException(String.format("Non-conformant matrix dimensions: [%d x %d] * [%d x %d]", n, A[0].length, m, p));
+		}
+		
+		if (p == 0) {
+			return new double[0][0];
+		}
+		
+//		return uncheckedMultiply(A, B, n, m, p);
+		return uncheckedMultiplyJAMA(A, B, n, m, p);
+	}
+	
+	/**
+	 * 
+	 * @param A
+	 * @param B
+	 * @return
+	 */
+	public static final double[][] uncheckedMultiply(final double[][] A, final double[][] B) {
+//		return uncheckedMultiply(A, B, A.length, B.length, B[0].length);
+		return uncheckedMultiplyJAMA(A, B, A.length, B.length, B[0].length);
+	}
+	
+	static final double[][] uncheckedMultiply(final double[][] A, final double[][] B, final int n, final int m, final int p) {
+		final double[][] C = new double[n][p];
+		for (int i = 0; i < n; i++) {
+			final double[] aRow = A[i];
+			final double[] cRow = C[i];
+			for (int k = 0; k < m; k++) {
+				final double[] bRow = B[k];
+				final double aVal = aRow[k];
+				for (int j = 0; j < p; j++) {
+					cRow[j] += aVal * bRow[j];
+				}
+			}
+		}
+		
+		return C;
+	}
+	
+	static double[][] uncheckedMultiplyJAMA(final double[][] A, final double[][] B, final int n, final int m, final int p) {
+		final double[][] C = new double[n][p];
+		final double[] bCol = new double[m];
+		for (int j = 0; j < p; j++) {
+			for (int k = 0; k < m; k++)
+				bCol[k] = B[k][j];
+			for (int i = 0; i < n; i++) {
+				final double[] aRow = A[i];
+				double sum = 0.0;
+				for (int k = 0; k < m; k++) {
+					sum += aRow[k] * bCol[k];
+				}
+				
+				C[i][j] = sum;
+			}
+		}
+		
+		return C;
+	}
 }

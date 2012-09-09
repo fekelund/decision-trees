@@ -1,13 +1,14 @@
 package se.ipx.ml.trees.regression;
 
+import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
+import it.unimi.dsi.fastutil.doubles.DoubleSet;
+
 import java.util.List;
 
 import se.ipx.ml.Instances;
 import se.ipx.ml.SplitCriteria;
 import se.ipx.ml.util.Pair;
 import se.ipx.ml.util.Util;
-import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
-import it.unimi.dsi.fastutil.doubles.DoubleSet;
 
 public class RegressionTreeImpl implements RegressionTree {
 
@@ -24,7 +25,7 @@ public class RegressionTreeImpl implements RegressionTree {
 	}
 
 	@Override
-	public double predict(double[] featureVector) {
+	public double predict(double[] featureVector) {		
 		preCheck(featureVector);
 		return root.getValue(featureVector);
 	}
