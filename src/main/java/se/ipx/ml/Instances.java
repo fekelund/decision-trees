@@ -71,6 +71,6 @@ public interface Instances {
 	 * @param criteria
 	 * @return
 	 */
-	Pair<Instances, Instances> binarySplitOn(SplitCriteria criteria);
+	Pair<Instances, Instances> splitUsing(SplitCriteria criteria);
 
 }

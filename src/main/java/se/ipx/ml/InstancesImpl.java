@@ -73,7 +73,7 @@ public class InstancesImpl implements Instances {
 	}
 
 	@Override
-	public Pair<Instances, Instances> binarySplitOn(final SplitCriteria criteria) {
+	public Pair<Instances, Instances> splitUsing(final SplitCriteria criteria) {
 		Builder l = InstancesImpl.newBuilder().setFeatureLabels(fetaureLabels).setTargetLabel(targetLabel);
 		Builder r = InstancesImpl.newBuilder().setFeatureLabels(fetaureLabels).setTargetLabel(targetLabel);
 		for (int i = 0; i < valuesByRow.length; i++) {
