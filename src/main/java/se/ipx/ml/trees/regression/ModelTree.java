@@ -5,6 +5,8 @@ import static se.ipx.ml.util.Util.asScalar;
 import static se.ipx.ml.util.Util.multiply;
 import static se.ipx.ml.util.Util.transpose;
 
+import java.util.concurrent.ForkJoinPool;
+
 import org.ojalgo.matrix.BasicMatrix;
 import org.ojalgo.matrix.PrimitiveMatrix;
 
@@ -49,9 +51,11 @@ public class ModelTree extends AbstractRegressionTree {
 	
 	public static class Trainer extends AbstractTrainer {
 
+		private ForkJoinPool pool;
 		private Instances trainingSet;
 		private double minError;
 		private int minRowsInSplit;
+		private int numThreads;
 		
 		public Trainer() {
 			minError = 0.001D;
@@ -77,6 +81,16 @@ public class ModelTree extends AbstractRegressionTree {
 			return this;
 		}
 
+		public Trainer setForkJoinPool(ForkJoinPool pool) {
+			this.pool = pool;
+			return this;
+		}
+		
+		public Trainer setNumThreads(int numThreads) {
+			this.numThreads = numThreads;
+			return this;
+		}
+		
 		public void validate() {
 			if (trainingSet == null) {
 				throw new IllegalStateException("Missing training set");
@@ -118,8 +132,12 @@ public class ModelTree extends AbstractRegressionTree {
 		
 		public ModelTree train() {
 			validate();
-			return new ModelTree(
-					buildTree(trainingSet, minError, minRowsInSplit),
+			if (pool == null) {
+				pool = new ForkJoinPool(numThreads);
+			}
+			
+			Node root = pool.invoke(new TreeBuildingTask(trainingSet, minError, minRowsInSplit));
+			return new ModelTree(root,
 					trainingSet.getNumFeatures(), 
 					trainingSet.getTargetLabel(),
 					trainingSet.getFeatureLabels());

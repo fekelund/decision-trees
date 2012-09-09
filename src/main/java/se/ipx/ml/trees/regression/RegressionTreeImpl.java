@@ -2,6 +2,9 @@ package se.ipx.ml.trees.regression;
 
 import static se.ipx.ml.util.Util.mean;
 import static se.ipx.ml.util.Util.variance;
+
+import java.util.concurrent.ForkJoinPool;
+
 import se.ipx.ml.Instances;
 
 public class RegressionTreeImpl extends AbstractRegressionTree {
@@ -43,9 +46,11 @@ public class RegressionTreeImpl extends AbstractRegressionTree {
 
 	public static class Trainer extends AbstractTrainer {
 		
+		private ForkJoinPool pool;
 		private Instances trainingSet;
 		private double minError;
 		private int minRowsInSplit;
+		private int numThreads;
 		
 		public Trainer() {
 			minError = 0.001D;
@@ -71,6 +76,16 @@ public class RegressionTreeImpl extends AbstractRegressionTree {
 			return this;
 		}
 
+		public Trainer setForkJoinPool(ForkJoinPool pool) {
+			this.pool = pool;
+			return this;
+		}
+		
+		public Trainer setNumThreads(int numThreads) {
+			this.numThreads = numThreads;
+			return this;
+		}
+		
 		public void validate() {
 			if (trainingSet == null) {
 				throw new IllegalStateException("Missing training set");
@@ -89,8 +104,12 @@ public class RegressionTreeImpl extends AbstractRegressionTree {
 		
 		public RegressionTreeImpl train() {
 			validate();
-			return new RegressionTreeImpl(
-					buildTree(trainingSet, minError, minRowsInSplit),
+			if (pool == null) {
+				pool = new ForkJoinPool(numThreads);
+			}
+			
+			Node root = pool.invoke(new TreeBuildingTask(trainingSet, minError, minRowsInSplit));
+			return new RegressionTreeImpl(root,
 					trainingSet.getNumFeatures(), 
 					trainingSet.getTargetLabel(),
 					trainingSet.getFeatureLabels());

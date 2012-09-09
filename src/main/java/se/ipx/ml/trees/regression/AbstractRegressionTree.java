@@ -3,7 +3,11 @@ package se.ipx.ml.trees.regression;
 import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleSet;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.RecursiveTask;
 
 import se.ipx.ml.Instances;
 import se.ipx.ml.util.Pair;
@@ -156,63 +160,172 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 		protected abstract Node createLeafNode(Instances instances);
 		
 		protected abstract double getError(Instances instances);
-		
-		protected final Node buildTree(final Instances set, final double minError, final int minRows) {
-			// TODO: ugly, fix!
-			Pair<Integer, ?> split = chooseBestSplit(set, minError, minRows);
-			Integer feature = split.getLeft();
-			if (feature == null) {
-				return (Node) split.getRight();
+				
+		class TreeBuildingTask extends RecursiveTask<Node> {
+
+			private static final long serialVersionUID = 1L;
+			
+			final Instances set;
+			final double minError;
+			final int minRows;
+			
+			TreeBuildingTask(Instances set, double minSquaredError, int minRowsInSplit) {
+				this.set = set;
+				this.minError = minSquaredError;
+				this.minRows = minRowsInSplit;
+			}
+
+			@Override
+			protected Node compute() {
+				Pair<Integer, ?> split = chooseBestSplit(set);
+				Integer feature = split.getLeft();
+				if (feature == null) {
+					return (Node) split.getRight();
+				}
+				
+				double value = ((Double) split.getRight()).doubleValue();
+				Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(feature, value));
+				TreeBuildingTask lBranch = new TreeBuildingTask(pair.getLeft(), minError, minRows);
+				TreeBuildingTask rBranch = new TreeBuildingTask(pair.getRight(), minError, minRows);
+				lBranch.fork();
+				Node rChild = rBranch.compute();
+				Node lChild = lBranch.join();
+				return new InternalNode(lChild, rChild, feature, value);
 			}
 			
-			double value = ((Double) split.getRight()).doubleValue();
-			Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(feature, value));
-			Node lChild = buildTree(pair.getLeft(), minError, minRows);
-			Node rChild = buildTree(pair.getRight(), minError, minRows);
-			return new InternalNode(lChild, rChild, feature, value);
-		}
-		
-		private final Pair<Integer, ?> chooseBestSplit(final Instances set, final double minError, final int minRows) {
-			DoubleSet uniqueTargetValues = new DoubleOpenHashSet(set.getTargetValues());
-			if (uniqueTargetValues.size() == 1) {
-				return Pair.with(null, createLeafNode(set));
-			}
+			protected Pair<Integer, ?> chooseBestSplit(final Instances set) {
+				DoubleSet uniqueTargetValues = new DoubleOpenHashSet(set.getTargetValues());
+				if (uniqueTargetValues.size() == 1) {
+					return Pair.with(null, createLeafNode(set));
+				}
 
-			final double error = getError(set);
-			double bestError = Double.POSITIVE_INFINITY;
-			double bestValue = 0D;
-			int bestFeature = 0;
-			for (int feature = 0; feature < set.getNumFeatures(); feature++) {
-				double[] values = set.getFeatureValues(feature);
-				for (double value : new DoubleOpenHashSet(values)) {
-					Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(feature, value));
-					Instances l = pair.getLeft();
-					Instances r = pair.getRight();
-					if (l.getNumInstances() < minRows || r.getNumInstances() < minRows) {
-						continue;
+				final double error = getError(set);
+				final SortedSet<ErrorCalculationResult> sortedResults = new TreeSet<ErrorCalculationResult>();
+				for (int feature = 0; feature < set.getNumFeatures(); feature++) {
+					double[] values = getUniqueValues(set.getFeatureValues(feature));
+					
+					
+					List<ErrorCalculationTask> tasks = new ArrayList<ErrorCalculationTask>(values.length);
+					for (double value : values) {
+						tasks.add(new ErrorCalculationTask(set, minRows, feature, value));
 					}
-
-					double newError = getError(l) + getError(r);
-					if (newError < bestError) {
-						bestError = newError;
-						bestFeature = feature;
-						bestValue = value;
+					
+					invokeAll(tasks);
+					for (ErrorCalculationTask task : tasks) {
+						try {
+							ErrorCalculationResult result = task.get();
+							if (result != null) {
+								sortedResults.add(result);
+							}
+						} catch (Exception e) { 
+							throw new RuntimeException(e);
+						}						
 					}
 				}
-			}
 
-			if ((error - bestError) < minError) {
-				return Pair.with(null, createLeafNode(set));
-			}
+				if (sortedResults.isEmpty()) {
+					return Pair.with(null, createLeafNode(set));					
+				}
+				
+				ErrorCalculationResult best = sortedResults.first();					
+				if ((error - best.error) < minError) {
+					return Pair.with(null, createLeafNode(set));
+				}
 
-			Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(bestFeature, bestValue));
-			Instances l = pair.getLeft();
-			Instances r = pair.getRight();
-			if (l.getNumInstances() < minRows || r.getNumInstances() < minRows) {
-				return Pair.with(null, createLeafNode(set));
-			}
+				Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(best.feature, best.value));
+				Instances l = pair.getLeft();
+				Instances r = pair.getRight();
+				if (l.getNumInstances() < minRows || r.getNumInstances() < minRows) {
+					return Pair.with(null, createLeafNode(set));
+				}
 
-			return Pair.with(bestFeature, bestValue);
+				return Pair.with(best.feature, best.value);
+			}
+		}
+		
+		class ErrorCalculationTask extends RecursiveTask<ErrorCalculationResult> {
+
+			private static final long serialVersionUID = 1L;
+			
+			final Instances set;
+			final int minRows;
+			final int feature;
+			final double value;
+			
+			ErrorCalculationTask(Instances set, int minRowsInSplit, int feature, double value) {
+				this.set = set;
+				this.minRows = minRowsInSplit;
+				this.feature = feature;
+				this.value = value;
+			}
+			
+			@Override
+			protected ErrorCalculationResult compute() {
+				Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(feature, value));
+				Instances l = pair.getLeft();
+				Instances r = pair.getRight();
+				if (l.getNumInstances() < minRows || r.getNumInstances() < minRows) {
+					return null;
+				}
+
+				return ErrorCalculationResult.from(getError(l) + getError(r), feature, value);
+			}
+		}
+		
+		private static final double[] getUniqueValues(final double[] values) {
+			return new DoubleOpenHashSet(values).toDoubleArray();
+		}
+	}
+	
+	static class ErrorCalculationResult implements Comparable<ErrorCalculationResult> {
+		
+		final Double error;
+		final Double value;
+		final int feature;
+		
+		ErrorCalculationResult(double error, int feature, double value) {
+			this.error = Double.valueOf(error);
+			this.value = Double.valueOf(value);
+			this.feature = feature;
+		}
+		
+		static ErrorCalculationResult from(double error, int feature, double value) {
+			return new ErrorCalculationResult(error, feature, value);
+		}
+
+		@Override
+		public int compareTo(ErrorCalculationResult o) {
+			double res = error.doubleValue() - o.error.doubleValue();
+			if (res < 0D) {
+				return -1;												
+			} else if (res > 0D) {
+				return 1;								
+			} else {
+				return 0;				
+			}
+		}
+		
+		@Override
+		public int hashCode() {
+			int hash = 7;
+			hash = hash * 31 + error.hashCode();
+			hash = hash * 31 + value.hashCode();
+			hash = hash * 31 + feature;
+			return hash;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == null) {
+				return false;				
+			}
+			
+			if (!(obj instanceof ErrorCalculationResult)) {
+				return false;								
+			}
+			
+			ErrorCalculationResult that = (ErrorCalculationResult) obj;
+			return (this.error == that.error) && (this.value == that.value) && (this.feature == that.feature);
 		}
 	}
 }
