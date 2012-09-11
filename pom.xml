@@ -4,16 +4,24 @@
 	<groupId>se.ipx.ml</groupId>
 	<artifactId>decision-trees</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<name>Decision Trees</name>
+	<description>Java implementations of various tree based learning algorithms</description>
+	<url>https://github.com/fekelund/decision-trees</url>
+	<licenses>
+		<license>
+			<name>The Apache Software License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+	<scm>
+		<url>https://github.com/fekelund/decision-trees.git</url>
+	</scm>
 	<dependencies>
 		<dependency>
 			<groupId>org.ojalgo</groupId>
 			<artifactId>ojalgo</artifactId>
 			<version>31.0</version>
-		</dependency>
-		<dependency>
-			<groupId>it.unimi.dsi</groupId>
-			<artifactId>fastutil</artifactId>
-			<version>6.4.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.testng</groupId>

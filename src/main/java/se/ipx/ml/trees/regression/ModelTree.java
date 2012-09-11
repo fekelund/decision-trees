@@ -10,31 +10,36 @@ import java.util.concurrent.ForkJoinPool;
 import org.ojalgo.matrix.BasicMatrix;
 import org.ojalgo.matrix.PrimitiveMatrix;
 
-import se.ipx.ml.Instances;
+import se.ipx.ml.data.Instances;
 
+/**
+ * 
+ * @author Fredrik Ekelund
+ * 
+ */
 public class ModelTree extends AbstractRegressionTree {
 
 	private ModelTree(Node root, int numFeatures, String targetLabel, String[] featureLabels) {
 		super(root, numFeatures, targetLabel, featureLabels);
 	}
-	
+
 	public static Trainer newTrainer() {
 		return new Trainer();
 	}
-	
+
 	static class ModelLeafNode extends Node {
 
 		final double[][] ws;
-		
+
 		ModelLeafNode(double[] ws) {
 			this.ws = asMatrix(ws);
 		}
-		
+
 		@Override
 		double getValue(double[] features) {
 			return asScalar(multiply(ws, transpose(features)));
 		}
-		
+
 		@Override
 		void write(StringBuilder sb, int depth, String prefix, String[] labels) {
 			for (int i = 0; i < depth; i++) {
@@ -45,25 +50,41 @@ public class ModelTree extends AbstractRegressionTree {
 				sb.append(prefix);
 			}
 
-			sb.append(" : ").append(ws[0]).append('\n');
+			sb.append(" : ");
+			boolean first = true;
+			for (double d : ws[0]) {
+				if (first) {
+					sb.append("[");
+					first = false;
+				} else {
+					sb.append(", ");
+				}
+
+				sb.append(d);
+			}
+
+			sb.append("]\n");
 		}
+		
 	}
-	
+
 	public static class Trainer extends AbstractTrainer {
 
-		private ForkJoinPool pool;
-		private Instances trainingSet;
+		private static final long serialVersionUID = 1L;
+
+		private transient ForkJoinPool pool;
+		private Instances<Double> set;
 		private double minError;
 		private int minRowsInSplit;
 		private int numThreads;
-		
+
 		public Trainer() {
 			minError = 0.001D;
 			minRowsInSplit = 3;
 		}
-		
-		public Trainer setMinError(double minSquaredError) {
-			this.minError = minSquaredError;
+
+		public Trainer setMinError(double minError) {
+			this.minError = minError;
 			return this;
 		}
 
@@ -71,13 +92,13 @@ public class ModelTree extends AbstractRegressionTree {
 			if (minRowsInSplit < 1) {
 				throw new IllegalStateException();
 			}
-			
+
 			this.minRowsInSplit = minRowsInSplit;
 			return this;
 		}
 
-		public Trainer setTrainingSet(Instances trainingSet) {
-			this.trainingSet = trainingSet;
+		public Trainer setTrainingSet(Instances<Double> set) {
+			this.set = set;
 			return this;
 		}
 
@@ -85,22 +106,22 @@ public class ModelTree extends AbstractRegressionTree {
 			this.pool = pool;
 			return this;
 		}
-		
+
 		public Trainer setNumThreads(int numThreads) {
 			this.numThreads = numThreads;
 			return this;
 		}
-		
+
 		public void validate() {
-			if (trainingSet == null) {
+			if (set == null) {
 				throw new IllegalStateException("Missing training set");
 			}
 		}
-		
+
 		@Override
-		protected Node createLeafNode(final Instances set) {
-			BasicMatrix X = PrimitiveMatrix.FACTORY.rows(set.getFeatureVectors());
-			BasicMatrix y = PrimitiveMatrix.FACTORY.columns(set.getTargetValues());
+		protected Node createLeafNode(final Instances<Double> set) {
+			BasicMatrix X = PrimitiveMatrix.FACTORY.copy(set.getFeatureMatrix());
+			BasicMatrix y = PrimitiveMatrix.FACTORY.columns(set.getTargets());
 			BasicMatrix ws = X.solve(y);
 			double[] w = new double[ws.getRowDim()];
 			for (int i = 0; i < w.length; i++) {
@@ -109,11 +130,11 @@ public class ModelTree extends AbstractRegressionTree {
 
 			return new ModelLeafNode(w);
 		}
-		
+
 		@Override
-		protected double getError(final Instances set) {
-			BasicMatrix A = PrimitiveMatrix.FACTORY.rows(set.getFeatureVectors());
-			BasicMatrix b = PrimitiveMatrix.FACTORY.columns(set.getTargetValues());
+		protected double getError(final Instances<Double> set) {
+			BasicMatrix A = PrimitiveMatrix.FACTORY.copy(set.getFeatureMatrix());
+			BasicMatrix b = PrimitiveMatrix.FACTORY.columns(set.getTargets());
 			BasicMatrix ws = A.solve(b);
 			BasicMatrix yHat = A.multiplyRight(ws);
 			BasicMatrix s = b.subtract(yHat);
@@ -126,21 +147,20 @@ public class ModelTree extends AbstractRegressionTree {
 					sum += s.doubleValue(i, j);
 				}
 			}
-			
+
 			return sum;
 		}
-		
+
 		public ModelTree train() {
 			validate();
 			if (pool == null) {
 				pool = new ForkJoinPool(numThreads);
 			}
-			
-			Node root = pool.invoke(new TreeBuildingTask(trainingSet, minError, minRowsInSplit));
-			return new ModelTree(root,
-					trainingSet.getNumFeatures(), 
-					trainingSet.getTargetLabel(),
-					trainingSet.getFeatureLabels());
+
+			Node root = pool.invoke(new TreeBuildingTask(set, minError, minRowsInSplit));
+			return new ModelTree(root, set.getNumFeatures(), set.getTargetLabel(), set.getFeatureLabels());
 		}
-	}	
+
+	}
+
 }

@@ -1,28 +1,30 @@
 package se.ipx.ml.trees.regression;
 
-import se.ipx.ml.SplitCriteria;
+import se.ipx.ml.data.SplitCriteria;
+import se.ipx.ml.data.Vector;
 
-class Criteria implements SplitCriteria {
+class Criteria implements SplitCriteria<Double> {
 
-	private final int featureIndex;
-	private final double featureValue;
+	private final int feature;
+	private final double value;
 
-	private Criteria(int featureIndex, double featureValue) {
-		this.featureIndex = featureIndex;
-		this.featureValue = featureValue;
-	}
-	
-	static Criteria basedOn(int featureIndex, double featureValue) {
-		return new Criteria(featureIndex, featureValue);
+	private Criteria(final int feature, final double value) {
+		this.feature = feature;
+		this.value = value;
 	}
 
-	@Override
-	public boolean isLeft(final double[] featureVector) {
-		return featureVector[featureIndex] >= featureValue;
+	static Criteria basedOn(final int feature, final double value) {
+		return new Criteria(feature, value);
 	}
 
 	@Override
-	public boolean isRight(final double[] featureVector) {
-		return featureVector[featureIndex] < featureValue;
+	public boolean isLeft(final Vector<Double> featureVector) {
+		return featureVector.getValue(feature).doubleValue() >= value;
 	}
+
+	@Override
+	public boolean isRight(final Vector<Double> featureVector) {
+		return featureVector.getValue(feature).doubleValue() < value;
+	}
+
 }

@@ -1,6 +1,9 @@
 package se.ipx.ml.util;
 
+import java.util.Iterator;
 import java.util.List;
+
+import se.ipx.ml.data.Vector;
 
 public class Util {
 
@@ -21,6 +24,24 @@ public class Util {
 		return sum;
 	}
 
+	public static final double sum(final Iterable<Double> distribution) {
+		double sum = 0D;
+		for (Double value : distribution) {
+			sum += value;
+		}
+		
+		return sum;
+	}
+
+	public static final double sum(final Vector<Double> vector) {
+		double sum = 0D;
+		for (int i = 0; i < vector.getLength(); i++) {
+			sum += vector.getValue(i);
+		}
+		
+		return sum;
+	}
+
 	/**
 	 * 
 	 * @param distribution
@@ -30,6 +51,14 @@ public class Util {
 		return sum(distribution) / distribution.length;
 	}
 
+	public static final double mean(final Iterable<Double> distribution, final int length) {
+		return sum(distribution) / length;
+	}
+
+	public static final double mean(final Vector<Double> vector) {
+		return sum(vector) / vector.getLength();
+	}
+	
 	/**
 	 * Not bias corrected.
 	 * 
@@ -48,6 +77,30 @@ public class Util {
 		return (sum1 - (sum2 * sum2 / distribution.length)) / distribution.length;
 	}
 
+	public static final double variance(final Iterable<Double> distribution, final int length) {
+		final double mean = mean(distribution, length);
+		double sum1 = 0D, sum2 = 0D, deviation = 0D;
+		for (Double value : distribution) {
+			deviation = value - mean;
+			sum1 += deviation * deviation;
+			sum2 += deviation;
+		}
+		
+		return (sum1 - (sum2 * sum2 / length)) / length;
+	}
+
+	public static final double variance(final Vector<Double> vector) {
+		final double mean = mean(vector);
+		double sum1 = 0D, sum2 = 0D, deviation = 0D;
+		for (int i = 0; i < vector.getLength(); i++) {
+			deviation = vector.getValue(i) - mean;
+			sum1 += deviation * deviation;
+			sum2 += deviation;
+		}
+
+		return (sum1 - (sum2 * sum2 / vector.getLength())) / vector.getLength();
+	}
+	
 	/**
 	 * Not bias corrected.
 	 * 
@@ -102,6 +155,53 @@ public class Util {
 		return (sumXY / (Math.sqrt(sumX2) * Math.sqrt(sumY2)));
 	}
 
+	public static final double correlation(final Vector<Double> x, final Vector<Double> y) {
+		final double meanX = mean(x);
+		final double meanY = mean(y);
+		double sumXY = 0.0, sumX2 = 0.0, sumY2 = 0.0;
+		for (int i = 0; i < x.getLength(); i++) {
+			final double dx = x.getValue(i) - meanX;
+			final double dy = y.getValue(i) - meanY;
+			sumXY += dx * dy;
+			sumX2 += dx * dx;
+			sumY2 += dy * dy;
+		}
+		
+		return (sumXY / (Math.sqrt(sumX2) * Math.sqrt(sumY2)));
+	}
+
+	public static final double correlation(final double[] x, final Vector<Double> y) {
+		final double meanX = mean(x);
+		final double meanY = mean(y);
+		double sumXY = 0.0, sumX2 = 0.0, sumY2 = 0.0;
+		for (int i = 0; i < x.length; i++) {
+			final double dx = x[i] - meanX;
+			final double dy = y.getValue(i) - meanY;
+			sumXY += dx * dy;
+			sumX2 += dx * dx;
+			sumY2 += dy * dy;
+		}
+		
+		return (sumXY / (Math.sqrt(sumX2) * Math.sqrt(sumY2)));
+	}
+	
+	public static final double correlation(final Iterable<Double> x, final Iterable<Double> y, int length) {
+		final double meanX = mean(x, length);
+		final double meanY = mean(y, length);
+		double sumXY = 0.0, sumX2 = 0.0, sumY2 = 0.0;
+		Iterator<Double> xi = x.iterator();
+		Iterator<Double> yi = y.iterator();
+		while (xi.hasNext() && yi.hasNext()) {
+			final double dx = xi.next() - meanX;
+			final double dy = yi.next() - meanY;
+			sumXY += dx * dy;
+			sumX2 += dx * dx;
+			sumY2 += dy * dy;
+		}
+		
+		return (sumXY / (Math.sqrt(sumX2) * Math.sqrt(sumY2)));
+	}
+
 	/**
 	 * 
 	 * @param A
@@ -146,6 +246,15 @@ public class Util {
 			primitives[i] = numbers[i].doubleValue();
 		}
 
+		return primitives;
+	}
+
+	public static final double[] convert(final Vector<? extends Number> numbers) {
+		final double[] primitives = new double[numbers.getLength()];
+		for (int i = 0; i < primitives.length; i++) {
+			primitives[i] = numbers.getValue(i).doubleValue();
+		}
+		
 		return primitives;
 	}
 

@@ -2,6 +2,8 @@ package se.ipx.ml.trees;
 
 import java.util.List;
 
+import se.ipx.ml.data.Vector;
+
 /**
  * 
  * @author Fredrik Ekelund
@@ -10,18 +12,11 @@ import java.util.List;
  */
 public interface DecisionTree<C> {
 
-	/**
-	 * 
-	 * @param featureVector
-	 * @return
-	 */
-	C predict(Number... featureVector);
+	@SuppressWarnings("unchecked")
+	C predict(C... featureVector);
 
-	/**
-	 * 
-	 * @param featureVector
-	 * @return
-	 */
-	C predict(List<? extends Number> featureVector);
+	C predict(Vector<C> featureVector);
+
+	C predict(List<C> featureVector);
 
 }

@@ -1,15 +1,16 @@
 package se.ipx.ml.trees.regression;
 
-import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
-import it.unimi.dsi.fastutil.doubles.DoubleSet;
-
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.RecursiveTask;
 
-import se.ipx.ml.Instances;
+import se.ipx.ml.data.Instances;
+import se.ipx.ml.data.Vector;
+import se.ipx.ml.trees.DecisionTree;
 import se.ipx.ml.util.Pair;
 import se.ipx.ml.util.Util;
 
@@ -18,7 +19,7 @@ import se.ipx.ml.util.Util;
  * @author Fredrik Ekelund
  * 
  */
-public abstract class AbstractRegressionTree implements RegressionTree {
+public abstract class AbstractRegressionTree implements DecisionTree<Double> {
 
 	private final Node root;
 	private final String targetLabel;
@@ -32,20 +33,25 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 		this.targetLabel = targetLabel;
 	}
 
-	@Override
 	public double predict(double[] featureVector) {
 		preCheck(featureVector);
 		return root.getValue(featureVector);
 	}
 
 	@Override
-	public Double predict(Number... featureVector) {
+	public Double predict(Double... featureVector) {
 		preCheck(featureVector);
 		return root.getValue(Util.convert(featureVector));
 	}
 
 	@Override
-	public Double predict(List<? extends Number> featureVector) {
+	public Double predict(List<Double> featureVector) {
+		preCheck(featureVector);
+		return root.getValue(Util.convert(featureVector));
+	}
+
+	@Override
+	public Double predict(Vector<Double> featureVector) {
 		preCheck(featureVector);
 		return root.getValue(Util.convert(featureVector));
 	}
@@ -105,13 +111,30 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 		}
 	}
 
+	private void preCheck(final Vector<?> vector) {
+		if (vector == null) {
+			throw new NullPointerException();
+		}
+
+		final int n = vector.getLength();
+		if (n != numFeatures) {
+			throw new IllegalArgumentException();
+		}
+
+		for (int i = 0; i < n; i++) {
+			if (vector.getValue(i) == null) {
+				throw new NullPointerException();
+			}
+		}
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		root.write(sb, -1, null, featureLabels);
 		return sb.toString();
 	}
-	
+
 	static abstract class Node {
 
 		abstract double getValue(final double[] features);
@@ -124,10 +147,10 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 
 		final Node left;
 		final Node right;
-		final double value;
+		final Double value;
 		final int feature;
 
-		InternalNode(Node left, Node right, int feature, double value) {
+		InternalNode(Node left, Node right, int feature, Double value) {
 			this.left = left;
 			this.right = right;
 			this.value = value;
@@ -153,25 +176,28 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 			right.write(sb, depth + 1, labels[feature] + " < " + value, labels);
 			left.write(sb, depth + 1, labels[feature] + " >= " + value, labels);
 		}
+	
 	}
-		
-	static abstract class AbstractTrainer {
-		
-		protected abstract Node createLeafNode(Instances instances);
-		
-		protected abstract double getError(Instances instances);
-				
+
+	static abstract class AbstractTrainer implements Serializable {
+
+		private static final long serialVersionUID = 1L;
+
+		protected abstract Node createLeafNode(Instances<Double> instances);
+
+		protected abstract double getError(Instances<Double> instances);
+
 		class TreeBuildingTask extends RecursiveTask<Node> {
 
 			private static final long serialVersionUID = 1L;
-			
-			final Instances set;
+
+			final Instances<Double> set;
 			final double minError;
 			final int minRows;
-			
-			TreeBuildingTask(Instances set, double minSquaredError, int minRowsInSplit) {
+
+			TreeBuildingTask(Instances<Double> set, double minError, int minRowsInSplit) {
 				this.set = set;
-				this.minError = minSquaredError;
+				this.minError = minError;
 				this.minRows = minRowsInSplit;
 			}
 
@@ -182,34 +208,31 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 				if (feature == null) {
 					return (Node) split.getRight();
 				}
-				
-				double value = ((Double) split.getRight()).doubleValue();
-				Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(feature, value));
-				TreeBuildingTask lBranch = new TreeBuildingTask(pair.getLeft(), minError, minRows);
-				TreeBuildingTask rBranch = new TreeBuildingTask(pair.getRight(), minError, minRows);
-				lBranch.fork();
-				Node rChild = rBranch.compute();
-				Node lChild = lBranch.join();
-				return new InternalNode(lChild, rChild, feature, value);
+
+				Double value = (Double) split.getRight();
+				Pair<Instances<Double>, Instances<Double>> sets = set.splitUsing(Criteria.basedOn(feature, value));
+				TreeBuildingTask leftBranch = new TreeBuildingTask(sets.getLeft(), minError, minRows);
+				leftBranch.fork();
+				TreeBuildingTask rightBranch = new TreeBuildingTask(sets.getRight(), minError, minRows);
+				Node rightChild = rightBranch.compute();
+				Node leftChild = leftBranch.join();
+				return new InternalNode(leftChild, rightChild, feature, value);
 			}
-			
-			protected Pair<Integer, ?> chooseBestSplit(final Instances set) {
-				DoubleSet uniqueTargetValues = new DoubleOpenHashSet(set.getTargetValues());
-				if (uniqueTargetValues.size() == 1) {
+
+			protected Pair<Integer, ?> chooseBestSplit(final Instances<Double> set) {
+				if (set.getTargets().getUniqueValues().size() == 1) {
 					return Pair.with(null, createLeafNode(set));
 				}
 
 				final double error = getError(set);
 				final SortedSet<ErrorCalculationResult> sortedResults = new TreeSet<ErrorCalculationResult>();
 				for (int feature = 0; feature < set.getNumFeatures(); feature++) {
-					double[] values = getUniqueValues(set.getFeatureValues(feature));
-					
-					
-					List<ErrorCalculationTask> tasks = new ArrayList<ErrorCalculationTask>(values.length);
-					for (double value : values) {
+					Set<Double> values = set.getFeatures(feature).getUniqueValues();
+					List<ErrorCalculationTask> tasks = new ArrayList<ErrorCalculationTask>(values.size());
+					for (Double value : values) {
 						tasks.add(new ErrorCalculationTask(set, minRows, feature, value));
 					}
-					
+
 					invokeAll(tasks);
 					for (ErrorCalculationTask task : tasks) {
 						try {
@@ -217,115 +240,116 @@ public abstract class AbstractRegressionTree implements RegressionTree {
 							if (result != null) {
 								sortedResults.add(result);
 							}
-						} catch (Exception e) { 
+						} catch (Exception e) {
 							throw new RuntimeException(e);
-						}						
+						}
 					}
 				}
 
 				if (sortedResults.isEmpty()) {
-					return Pair.with(null, createLeafNode(set));					
+					return Pair.with(null, createLeafNode(set));
 				}
-				
-				ErrorCalculationResult best = sortedResults.first();					
+
+				ErrorCalculationResult best = sortedResults.first();
 				if ((error - best.error) < minError) {
 					return Pair.with(null, createLeafNode(set));
 				}
 
-				Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(best.feature, best.value));
-				Instances l = pair.getLeft();
-				Instances r = pair.getRight();
-				if (l.getNumInstances() < minRows || r.getNumInstances() < minRows) {
+				Pair<Instances<Double>, Instances<Double>> sets = set.splitUsing(Criteria.basedOn(best.feature,
+						best.value));
+				if (sets.getLeft().getNumInstances() < minRows || sets.getRight().getNumInstances() < minRows) {
 					return Pair.with(null, createLeafNode(set));
 				}
 
 				return Pair.with(best.feature, best.value);
 			}
-		}
 		
+		}
+
 		class ErrorCalculationTask extends RecursiveTask<ErrorCalculationResult> {
 
 			private static final long serialVersionUID = 1L;
-			
-			final Instances set;
+
+			final Instances<Double> set;
 			final int minRows;
 			final int feature;
-			final double value;
-			
-			ErrorCalculationTask(Instances set, int minRowsInSplit, int feature, double value) {
+			final Double value;
+
+			ErrorCalculationTask(Instances<Double> set, int minRowsInSplit, int feature, Double value) {
 				this.set = set;
 				this.minRows = minRowsInSplit;
 				this.feature = feature;
 				this.value = value;
 			}
-			
+
 			@Override
 			protected ErrorCalculationResult compute() {
-				Pair<Instances, Instances> pair = set.splitUsing(Criteria.basedOn(feature, value));
-				Instances l = pair.getLeft();
-				Instances r = pair.getRight();
-				if (l.getNumInstances() < minRows || r.getNumInstances() < minRows) {
+				Pair<Instances<Double>, Instances<Double>> sets = set.splitUsing(Criteria.basedOn(feature, value));
+				Instances<Double> lSet = sets.getLeft();
+				Instances<Double> rSet = sets.getRight();
+				if (lSet.getNumInstances() < minRows || rSet.getNumInstances() < minRows) {
 					return null;
 				}
 
-				return ErrorCalculationResult.from(getError(l) + getError(r), feature, value);
+				return ErrorCalculationResult.from(getError(lSet) + getError(rSet), feature, value);
 			}
-		}
 		
-		private static final double[] getUniqueValues(final double[] values) {
-			return new DoubleOpenHashSet(values).toDoubleArray();
 		}
-	}
 	
+	}
+
 	static class ErrorCalculationResult implements Comparable<ErrorCalculationResult> {
-		
-		final Double error;
+
+		final double error;
 		final Double value;
 		final int feature;
-		
-		ErrorCalculationResult(double error, int feature, double value) {
-			this.error = Double.valueOf(error);
-			this.value = Double.valueOf(value);
+
+		ErrorCalculationResult(double error, int feature, Double value) {
+			this.error = error;
+			this.value = value;
 			this.feature = feature;
 		}
-		
-		static ErrorCalculationResult from(double error, int feature, double value) {
+
+		static ErrorCalculationResult from(Double error, int feature, Double value) {
 			return new ErrorCalculationResult(error, feature, value);
 		}
 
 		@Override
 		public int compareTo(ErrorCalculationResult o) {
-			double res = error.doubleValue() - o.error.doubleValue();
+			double res = error - o.error;
 			if (res < 0D) {
-				return -1;												
+				return -1;
 			} else if (res > 0D) {
-				return 1;								
+				return 1;
 			} else {
-				return 0;				
+				return 0;
 			}
 		}
-		
+
 		@Override
 		public int hashCode() {
 			int hash = 7;
-			hash = hash * 31 + error.hashCode();
+			final long bits = Double.doubleToLongBits(error);
+			hash = hash * 31 + (int) (bits ^ (bits >>> 32));
 			hash = hash * 31 + value.hashCode();
 			hash = hash * 31 + feature;
 			return hash;
 		}
-		
+
 		@Override
 		public boolean equals(Object obj) {
 			if (obj == null) {
-				return false;				
+				return false;
 			}
-			
+
 			if (!(obj instanceof ErrorCalculationResult)) {
-				return false;								
+				return false;
 			}
-			
+
 			ErrorCalculationResult that = (ErrorCalculationResult) obj;
-			return (this.error == that.error) && (this.value == that.value) && (this.feature == that.feature);
+			return this.feature == that.feature && this.error == that.error && this.value.equals(that.value);
 		}
+	
 	}
+	
 }
