@@ -1,0 +1,11 @@
+* text=auto
+
+*.java text
+*.xml text
+*.md text
+*.txt text
+NOTICE text
+LICENSE text
+LICENSE_HEADER text
+
+*.jar binary
