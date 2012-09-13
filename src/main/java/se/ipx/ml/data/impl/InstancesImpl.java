@@ -26,6 +26,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
+import se.ipx.ml.data.Instance;
 import se.ipx.ml.data.Instances;
 import se.ipx.ml.data.Matrix;
 import se.ipx.ml.data.SplitCriteria;
@@ -56,7 +57,12 @@ public class InstancesImpl<T> implements Instances<T> {
 		this.numRows = numRows;
 		this.numCols = numCols;
 	}
-
+	
+	@Override
+	public Instance<T> getInstance(int index) {
+		return new InstanceImpl<T>(this, targets.getValue(index), index);
+	}
+	
 	@Override
 	public Matrix<T> getFeatureMatrix() {
 		return new FeatureMatrix<T>(features, 0, numRows, numCols);
@@ -202,6 +208,7 @@ public class InstancesImpl<T> implements Instances<T> {
 			if (fVectors.size() != tVector.size()) {
 				throw new IllegalArgumentException();
 			}
+
 			this.fVectors = fVectors;
 			this.fLabels = fLabels;
 			this.tVector = new TargetColumn<T>(tVector);
@@ -209,6 +216,11 @@ public class InstancesImpl<T> implements Instances<T> {
 			this.numCols = numCols;
 		}
 
+		@Override
+		public Instance<T> getInstance(int index) {
+			return new InstanceImpl<T>(this, tVector.getValue(index), index);
+		}
+		
 		@Override
 		public Matrix<T> getFeatureMatrix() {
 			return new NestedFeatureMatrix<T>(fVectors, numCols);
