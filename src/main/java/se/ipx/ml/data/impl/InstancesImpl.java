@@ -26,6 +26,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
+import se.ipx.ml.data.Instance;
 import se.ipx.ml.data.Instances;
 import se.ipx.ml.data.Matrix;
 import se.ipx.ml.data.SplitCriteria;
@@ -55,6 +56,11 @@ public class InstancesImpl<T> implements Instances<T> {
 
 		this.numRows = numRows;
 		this.numCols = numCols;
+	}
+
+	@Override
+	public Instance<T> getInstance(int index) {
+		return new InstanceImpl<T>(this, targets.getValue(index), index);
 	}
 
 	@Override
@@ -207,6 +213,11 @@ public class InstancesImpl<T> implements Instances<T> {
 			this.tVector = new TargetColumn<T>(tVector);
 			this.tLabel = tLabel;
 			this.numCols = numCols;
+		}
+
+		@Override
+		public Instance<T> getInstance(int index) {
+			return new InstanceImpl<T>(this, tVector.getValue(index), index);
 		}
 
 		@Override
