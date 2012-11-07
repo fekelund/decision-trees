@@ -22,8 +22,6 @@ import java.io.Serializable;
 import se.ipx.ml.util.Pair;
 
 /**
- * A immutable class representing a set of instances. An instance is a feature 
- * vector (containing N features) and it's corresponding target value.
  * 
  * @author Fredrik Ekelund
  * 
@@ -31,15 +29,8 @@ import se.ipx.ml.util.Pair;
  */
 public interface Instances<T> extends Serializable {
 
-	/**
-	 * 
-	 * @param criteria
-	 * @return
-	 */
 	Pair<Instances<T>, Instances<T>> splitUsing(SplitCriteria<T> criteria);
 
-	Instance<T> getInstance(int index);
-	
 	Matrix<T> getFeatureMatrix();
 
 	Vector<T> getFeatureVector(int index);
