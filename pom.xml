@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>se.ipx.ml</groupId>
 	<artifactId>decision-trees</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.2</version>
 	<name>Decision Trees</name>
 	<description>Java implementations of various tree based learning algorithms</description>
 	<inceptionYear>2012</inceptionYear>
@@ -94,27 +94,6 @@
 				<version>2.6</version>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-install-plugin</artifactId>
-				<version>2.4</version>
-				<executions>
-					<execution>
-						<id>install-jsr166</id>
-						<phase>validate</phase>
-						<goals>
-							<goal>install-file</goal>
-						</goals>
-						<configuration>
-							<file>${project.basedir}/lib/jsr166.jar</file>
-							<groupId>jsr166</groupId>
-							<artifactId>jsr166</artifactId>
-							<version>1.0.0</version>
-							<packaging>jar</packaging>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
 				<groupId>com.mycila.maven-license-plugin</groupId>
 				<artifactId>maven-license-plugin</artifactId>
 				<version>1.9.0</version>
@@ -174,9 +153,9 @@
 	</build>
 	<dependencies>
 		<dependency>
-			<groupId>jsr166</groupId>
+			<groupId>org.codehaus.jsr166-mirror</groupId>
 			<artifactId>jsr166</artifactId>
-			<version>1.0.0</version>
+			<version>1.7.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.ojalgo</groupId>
